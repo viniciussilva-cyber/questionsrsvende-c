@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="pt-PT" class="h-full bg-[#121214]">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VENDE-C - Painel de Questionários R&S</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            darkBg: '#121214',
+                            cardBg: '#1A1A1E',
+                            cardHover: '#222228',
+                            pink: '#FF007F',
+                            pinkHover: '#E6006F',
+                            pinkGlow: 'rgba(255, 0, 127, 0.4)',
+                            textSecondary: '#8F8F9B',
+                            border: '#2C2C35'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        .secure-mode {
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+        }
+        
+        @media print {
+            body {
+                display: none !important;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #121214;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2C2C35;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #FF007F;
+        }
+    </style>
+</head>
+<body class="h-full font-sans text-slate-100 antialiased bg-brand-darkBg flex flex-col overflow-hidden">
+
+    <div id="db-loading-screen" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-brand-darkBg space-y-4">
+        <div class="w-16 h-16 animate-spin rounded-full border-4 border-brand-pink/20 border-t-brand-pink"></div>
+        <p class="text-sm text-brand-textSecondary font-semibold">A carregar o ecossistema VENDE-C...</p>
+    </div>
+
+    <div id="screen-login" class="fixed inset-0 z-50 flex items-center justify-center bg-brand-darkBg px-4 hidden">
+        <div class="max-w-md w-full bg-brand-cardBg rounded-3xl p-8 border border-brand-border/60 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+            <div class="flex flex-col items-center mb-8">
+                <span class="text-white font-black text-4xl tracking-wider select-none">VENDE-<span class="text-brand-pink">C</span></span>
+                <p class="text-[10px] text-brand-pink font-semibold uppercase tracking-widest mt-1">Recrutamento & Seleção</p>
+            </div>
+
+            <div class="text-center mb-6">
+                <h1 class="text-xl font-bold text-white tracking-tight">Bem-vindo ao RH</h1>
+                <p class="text-xs text-brand-textSecondary mt-1">Aceda utilizando as credenciais autorizadas de R&S.</p>
+            </div>
+
+            <div id="login-error-alert" class="hidden mb-4 p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400 flex items-center space-x-2">
+                <i class="fa-solid fa-circle-exclamation text-sm shrink-0"></i>
+                <span>E-mail não autorizado ou palavra-passe incorreta.</span>
+            </div>
+
+            <form onsubmit="window.handleLoginSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-[9px] font-bold text-brand-textSecondary tracking-widest uppercase mb-1.5">E-Mail Corporativo</label>
+                    <input type="email" id="login-email" required value="vagas@vende-c.com" class="w-full px-4 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-pink/50 focus:border-brand-pink transition-all placeholder-brand-textSecondary/30" placeholder="nome.sobrenome@vende-c.com">
+                </div>
+
+                <div>
+                    <label class="block text-[9px] font-bold text-brand-textSecondary tracking-widest uppercase mb-1.5">Palavra-passe Corporativa</label>
+                    <div class="relative">
+                        <input type="password" id="login-password" required value="rh2026!" class="w-full pl-4 pr-11 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-pink/50 focus:border-brand-pink transition-all">
+                        <button type="button" onclick="window.togglePasswordVisibility()" class="absolute right-3.5 top-3.5 text-brand-textSecondary hover:text-slate-200 transition-colors">
+                            <i id="password-toggle-icon" class="fa-solid fa-eye-slash text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-brand-pink hover:bg-brand-pinkHover text-white py-3.5 rounded-xl font-bold text-sm tracking-wide transition-all shadow-lg shadow-brand-pink/25 hover:shadow-brand-pink/40 hover:-translate-y-0.5 transform active:translate-y-0">
+                    Aceder ao Painel
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="main-system-layout" class="hidden h-full flex flex-row overflow-hidden">
+
+        <aside id="system-sidebar" class="w-64 bg-brand-cardBg border-r border-brand-border/60 flex flex-col justify-between shrink-0 transition-all duration-300">
+            <div>
+                <div class="h-20 flex items-center px-6 border-b border-brand-border/40">
+                    <span class="text-white font-black text-2xl tracking-wider select-none">VENDE-<span class="text-brand-pink">C</span></span>
+                </div>
+
+                <nav class="p-4 space-y-1">
+                    <button id="menu-painel" onclick="window.navigate('painel')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 text-white bg-brand-pink shadow-md shadow-brand-pink/10">
+                        <i class="fa-solid fa-folder-open w-5 text-center"></i>
+                        <span>Painel de Questionários</span>
+                    </button>
+                    <button id="menu-results" onclick="window.navigate('results')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 text-brand-textSecondary hover:text-white hover:bg-white/5">
+                        <i class="fa-solid fa-chart-pie w-5 text-center"></i>
+                        <span>Painel de Respostas</span>
+                    </button>
+                </nav>
+            </div>
+
+            <div class="p-4 border-t border-brand-border/40 bg-brand-darkBg/30">
+                <div class="flex items-center space-x-3">
+                    <div id="avatar-rh" class="w-9 h-9 rounded-full bg-brand-pink/20 border border-brand-pink flex items-center justify-center text-xs font-bold text-white uppercase">RH</div>
+                    <div class="overflow-hidden">
+                        <p class="text-xs font-bold text-white truncate">Administrador RH</p>
+                        <p id="user-display-email" class="text-[10px] text-brand-textSecondary truncate font-medium">vagas@vende-c.com</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <header id="rh-system-header" class="h-20 border-b border-brand-border/60 bg-brand-cardBg/20 flex items-center justify-between px-8 shrink-0">
+                <div>
+                    <span id="header-context-title" class="text-xs uppercase tracking-widest font-extrabold text-brand-pink">Questionários</span>
+                    <h2 id="header-context-subtitle" class="text-lg font-bold text-white">Questionários de R&S</h2>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="exit-simulation-btn" onclick="window.exitCandidateSimulation()" class="hidden px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-extrabold flex items-center space-x-1.5 transition-all">
+                        <i class="fa-solid fa-right-to-bracket rotate-180"></i>
+                        <span>Sair da Simulação</span>
+                    </button>
+
+                    <div id="conn-status-badge" class="flex items-center space-x-2 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-full text-xs text-amber-400 font-semibold">
+                        <span class="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+                        <span id="conn-status-text">Modo Local Ativo</span>
+                    </div>
+                    <button onclick="window.handleLogout()" class="text-brand-textSecondary hover:text-brand-pink text-xs font-bold flex items-center space-x-1.5 transition-colors">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <span>Sair</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-8 bg-[#121214]">
+
+                <div id="screen-painel" class="space-y-8">
+                    <div class="bg-gradient-to-r from-brand-cardBg to-brand-darkBg p-8 rounded-3xl border border-brand-border/60 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div class="space-y-2 z-10 text-center md:text-left">
+                            <h1 class="text-4xl font-extrabold text-white tracking-tight">Questionários de <span class="text-brand-pink">R&S</span></h1>
+                            <p class="text-sm text-brand-textSecondary max-w-xl">Crie avaliações com divisão de temas e gerencie candidatos de forma blindada.</p>
+                        </div>
+                        <button onclick="window.openCreateModal()" class="inline-flex items-center justify-center space-x-2 bg-brand-pink hover:bg-brand-pinkHover text-white px-6 py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-brand-pink/20 transition-all transform hover:-translate-y-0.5 z-10">
+                            <i class="fa-solid fa-plus text-base"></i>
+                            <span>Criar Novo Questionário</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-brand-cardBg p-6 rounded-2xl border border-brand-border/60 flex items-center space-x-4">
+                            <div class="p-3 bg-brand-pink/10 text-brand-pink rounded-xl"><i class="fa-solid fa-folder-open text-2xl"></i></div>
+                            <div>
+                                <p class="text-[10px] text-brand-textSecondary uppercase tracking-wider font-extrabold">Total de Questionários</p>
+                                <h3 id="stat-total-q" class="text-2xl font-black text-white">0</h3>
+                            </div>
+                        </div>
+                        <div class="bg-brand-cardBg p-6 rounded-2xl border border-brand-border/60 flex items-center space-x-4">
+                            <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl"><i class="fa-solid fa-circle-check text-2xl"></i></div>
+                            <div>
+                                <p class="text-[10px] text-brand-textSecondary uppercase tracking-wider font-extrabold">Fluxos Ativos</p>
+                                <h3 id="stat-ativos-q" class="text-2xl font-black text-white">0</h3>
+                            </div>
+                        </div>
+                        <div class="bg-brand-cardBg p-6 rounded-2xl border border-brand-border/60 flex items-center space-x-4">
+                            <div class="p-3 bg-red-500/10 text-red-400 rounded-xl"><i class="fa-solid fa-circle-xmark text-2xl"></i></div>
+                            <div>
+                                <p class="text-[10px] text-brand-textSecondary uppercase tracking-wider font-extrabold">Fluxos Fechados</p>
+                                <h3 id="stat-fechados-q" class="text-2xl font-black text-white">0</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 font-sans">
+                        <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-clipboard-list text-brand-pink"></i>
+                            <span>Lista de Fluxos Disponíveis</span>
+                        </h2>
+                        <div id="vagas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                    </div>
+                </div>
+
+                <div id="screen-results" class="hidden space-y-8">
+                    <div>
+                        <h1 class="text-3xl font-extrabold text-white tracking-tight">Painel de Respostas</h1>
+                        <p class="text-sm text-brand-textSecondary mt-1">Análise de métricas, tempos médios ocultos de execução e integridade dos candidatos.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-brand-cardBg p-6 rounded-2xl border border-brand-border/60">
+                            <p class="text-[10px] text-brand-textSecondary uppercase tracking-wider font-extrabold mb-1">Total de Respostas Coletadas</p>
+                            <h3 id="dash-total-answers" class="text-3xl font-black text-white">0</h3>
+                        </div>
+                        <div class="bg-brand-cardBg p-6 rounded-2xl border border-brand-border/60">
+                            <p class="text-[10px] text-brand-textSecondary uppercase tracking-wider font-extrabold mb-1">Tempo Médio Oculto</p>
+                            <h3 id="dash-avg-time" class="text-3xl font-black text-brand-pink">0s</h3>
+                        </div>
+                        <div class="bg-brand-cardBg p-6 rounded-2xl border border-brand-border/60">
+                            <p class="text-[10px] text-brand-textSecondary uppercase tracking-wider font-extrabold mb-1">Taxa de Integridade Global</p>
+                            <h3 id="dash-integrity-rate" class="text-3xl font-black text-emerald-400">100%</h3>
+                        </div>
+                    </div>
+
+                    <div class="bg-brand-cardBg rounded-3xl border border-brand-border/60 shadow-xl overflow-hidden">
+                        <div class="p-6 border-b border-brand-border/40 flex items-center justify-between bg-brand-darkBg/10">
+                            <h3 class="font-bold text-white text-base flex items-center space-x-2">
+                                <i class="fa-solid fa-list-check text-brand-pink"></i>
+                                <span>Fluxo Consolidado de Respostas</span>
+                            </h3>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-brand-darkBg/30 border-b border-brand-border/40 text-brand-textSecondary text-[10px] font-bold uppercase tracking-widest">
+                                        <th class="px-6 py-4">Candidato</th>
+                                        <th class="px-6 py-4">Cargo / Form</th>
+                                        <th class="px-6 py-4">Tempo Despendido</th>
+                                        <th class="px-6 py-4">Focalizações Perdidas</th>
+                                        <th class="px-6 py-4">Avaliação de Integridade</th>
+                                        <th class="px-6 py-4 text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-results-table-body" class="divide-y divide-brand-border/30 text-sm text-slate-300"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="screen-candidate" class="hidden max-w-3xl mx-auto space-y-6">
+                    <div id="candidate-closed-view" class="bg-brand-cardBg border border-red-500/30 rounded-3xl p-12 text-center space-y-6 hidden">
+                        <div class="w-20 h-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center text-3xl mx-auto border border-red-500/20">
+                            <i class="fa-solid fa-lock"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-extrabold text-white">Este Questionário de Seleção Está Fechado</h2>
+                            <p class="text-brand-textSecondary mt-2 text-sm max-w-md mx-auto">O recrutador responsável suspendeu temporariamente as submissões para este cargo.</p>
+                        </div>
+                    </div>
+
+                    <div id="candidate-success-view" class="bg-brand-cardBg border border-emerald-500/30 rounded-3xl p-12 text-center space-y-6 hidden">
+                        <div class="w-20 h-20 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center text-3xl mx-auto border border-emerald-500/20">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-extrabold text-white">Candidatura Submetida!</h2>
+                            <p class="text-brand-textSecondary mt-2 text-sm max-w-md mx-auto">Suas respostas foram gravadas com sucesso no nosso sistema.</p>
+                        </div>
+                    </div>
+
+                    <div id="candidate-active-view" class="space-y-6">
+                        <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5 flex items-start space-x-4">
+                            <div class="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl"><i class="fa-solid fa-shield-heart text-xl animate-pulse"></i></div>
+                            <div>
+                                <h3 class="font-bold text-amber-300 text-sm">Protocolo de Integridade Ativado</h3>
+                                <p class="text-xs text-brand-textSecondary mt-1">O seu progresso e desvios de foco da janela de teste estão a ser analisados para aferição de conformidade.</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-brand-cardBg rounded-3xl border border-brand-border/60 shadow-2xl overflow-hidden secure-mode">
+                            <div class="bg-[#1D1D24] p-6 text-white relative border-b border-brand-border/40">
+                                <span class="text-[10px] uppercase tracking-widest font-extrabold text-brand-pink">AVALIAÇÃO DE INGRESSO</span>
+                                <h2 id="candidate-job-title" class="text-xl font-bold mt-1">Carregando Questionário...</h2>
+                            </div>
+
+                            <form id="candidate-form" onsubmit="window.handleCandidateSubmit(event)" class="p-6 sm:p-8 space-y-6">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-bold text-brand-textSecondary uppercase tracking-wider mb-2">Nome Completo <span class="text-brand-pink">*</span></label>
+                                        <input type="text" id="cand-name" required placeholder="Insira o seu nome" class="w-full px-4 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-pink">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-brand-textSecondary uppercase tracking-wider mb-2">E-mail de Contacto <span class="text-brand-pink">*</span></label>
+                                        <input type="email" id="cand-email" required placeholder="exemplo@gmail.com" class="w-full px-4 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-pink">
+                                    </div>
+                                </div>
+
+                                <div class="border-t border-brand-border/40 my-6"></div>
+                                <div id="dynamic-questions-container" class="space-y-6"></div>
+
+                                <div class="pt-4">
+                                    <button type="submit" class="w-full bg-brand-pink hover:bg-brand-pinkHover text-white py-4 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center space-x-2">
+                                        <i class="fa-solid fa-paper-plane"></i>
+                                        <span>Submeter Avaliação Oficial</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <div id="add-vaga-modal" class="fixed inset-0 bg-brand-darkBg/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-brand-cardBg rounded-3xl max-w-2xl w-full border border-brand-border shadow-2xl overflow-hidden">
+            <div class="p-6 bg-brand-darkBg text-white flex items-center justify-between border-b border-brand-border/60">
+                <h3 class="font-bold text-lg">Novo Questionário</h3>
+                <button onclick="window.closeModal('add-vaga-modal')" class="text-brand-textSecondary hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form onsubmit="window.handleCreateVaga(event)" class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-brand-textSecondary uppercase mb-2">Cargo *</label>
+                        <input type="text" id="vaga-titulo" required class="w-full px-4 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-white text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-brand-textSecondary uppercase mb-2">Departamento *</label>
+                        <input type="text" id="vaga-departamento" required class="w-full px-4 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-white text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-brand-textSecondary uppercase mb-2">Senioridade</label>
+                        <select id="vaga-nivel" class="w-full px-4 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-white text-sm">
+                            <option value="Júnior">Júnior</option><option value="Pleno">Pleno</option><option value="Sênior">Sênior</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-brand-textSecondary uppercase mb-2">Regime</label>
+                        <select id="vaga-localidade" class="w-full px-4 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-white text-sm">
+                            <option value="Remoto">Remoto</option><option value="Presencial">Presencial</option><option value="Híbrido">Híbrido</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="space-y-4 border-t border-brand-border/40 pt-6">
+                    <div class="flex items-center justify-between">
+                        <h4 class="font-bold text-sm text-brand-pink uppercase tracking-widest">Estrutura do Exame</h4>
+                        <div class="flex space-x-2">
+                            <button type="button" onclick="window.addQuestionField('create-questions-container', 'secao')" class="px-3 py-1.5 bg-brand-pink/10 text-brand-pink rounded-lg text-xs font-bold">+ Seção</button>
+                            <button type="button" onclick="window.addQuestionField('create-questions-container', 'texto')" class="px-3 py-1.5 bg-brand-pink/10 text-brand-pink rounded-lg text-xs font-bold">+ Pergunta</button>
+                        </div>
+                    </div>
+                    <div id="create-questions-container" class="space-y-4"></div>
+                </div>
+                <div class="pt-4 border-t border-brand-border/40 flex justify-end space-x-3">
+                    <button type="button" onclick="window.closeModal('add-vaga-modal')" class="text-xs text-brand-textSecondary">Cancelar</button>
+                    <button type="submit" class="px-6 py-2.5 bg-brand-pink text-white rounded-xl font-bold text-xs">Criar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="share-modal" class="fixed inset-0 bg-brand-darkBg/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-brand-cardBg rounded-3xl max-w-lg w-full border border-brand-border shadow-2xl overflow-hidden">
+            <div class="p-6 bg-brand-darkBg text-white flex items-center justify-between border-b border-brand-border/60">
+                <h3 class="font-bold text-lg">Compartilhar Link da Prova</h3>
+                <button onclick="window.closeModal('share-modal')" class="text-brand-textSecondary hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-6 space-y-6">
+                <div class="flex items-center space-x-3 bg-brand-darkBg/40 p-3 rounded-xl border border-brand-border/40">
+                    <i class="fa-solid fa-file-invoice text-brand-pink text-lg"></i>
+                    <div>
+                        <p class="text-[9px] text-brand-textSecondary uppercase font-bold tracking-widest">Questionário Selecionado</p>
+                        <p id="share-vaga-title" class="text-sm font-bold text-white">-</p>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs uppercase tracking-wider font-bold text-brand-textSecondary mb-2">URL de Acesso Direto do Candidato</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="share-link-input" readonly class="flex-1 px-4 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-xs text-brand-pink font-semibold focus:outline-none">
+                        <button onclick="window.copyToClipboard()" class="bg-brand-pink text-white px-5 rounded-xl font-bold text-xs flex items-center space-x-1 shrink-0">
+                            <i class="fa-regular fa-copy"></i><span>Copiar</span>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-brand-textSecondary mt-1.5"><i class="fa-solid fa-info-circle mr-1"></i>Envie este link para o candidato responder sem precisar de login corporativo.</p>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-brand-darkBg border-t border-brand-border/60 flex justify-end">
+                <button onclick="window.closeModal('share-modal')" class="px-5 py-2.5 bg-brand-pink text-white rounded-xl font-bold text-xs">Concluído</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="vaga-submissions-modal" class="fixed inset-0 bg-brand-darkBg/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-brand-cardBg rounded-3xl max-w-4xl w-full border border-brand-border shadow-2xl overflow-hidden">
+            <div class="p-6 bg-brand-darkBg text-white flex items-center justify-between border-b border-brand-border/60">
+                <h3 class="font-bold text-lg text-white">Candidatos Inscritos</h3>
+                <button onclick="window.closeModal('vaga-submissions-modal')" class="text-brand-textSecondary hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
