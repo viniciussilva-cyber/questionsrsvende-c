@@ -97,7 +97,7 @@
                         <input type="password" id="login-password" required value="rh2026!" class="w-full pl-4 pr-11 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-pink/50 focus:border-brand-pink transition-all">
                         <button type="button" id="btn-toggle-password" class="absolute right-3.5 top-3.5 text-brand-textSecondary hover:text-slate-200 transition-colors">
                             <i id="password-toggle-icon" class="fa-solid fa-eye-slash text-xs"></i>
-                        </</button>
+                        </button>
                     </div>
                 </div>
 
@@ -168,7 +168,7 @@
                     <div class="bg-gradient-to-r from-brand-cardBg to-brand-darkBg p-8 rounded-3xl border border-brand-border/60 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
                         <div class="space-y-2 z-10 text-center md:text-left">
                             <h1 class="text-4xl font-extrabold text-white tracking-tight">Questionários de <span class="text-brand-pink">R&S</span></h1>
-                            <p class="text-sm text-brand-textSecondary max-w-xl">Crie avaliações com divisão de temas e gerencie candidatos de forma blindada.</p>
+                            <p class="text-sm text-brand-textSecondary max-w-xl">Crie avaliações com division de temas e gerencie candidatos de forma blindada.</p>
                         </div>
                         <div class="flex flex-wrap gap-3 z-10">
                             <button id="btn-create-questionnaire" class="inline-flex items-center justify-center space-x-2 bg-brand-pink hover:bg-brand-pinkHover text-white px-6 py-3.5 rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-brand-pink/20 transition-all transform hover:-translate-y-0.5">
@@ -841,7 +841,25 @@
             const vaga = window.vagasData.find(v => v.id === vagaId);
             if (!vaga) return;
             
-            const link = window.location.origin + window.location.pathname + '#exame-' + vaga.id;
+            let finalDomain = window.location.origin;
+
+            // Se o link contiver "-projects.vercel.app" (URL feia/interna do Vercel), limpa para o domínio principal do projeto
+            if (finalDomain.includes("-projects.vercel.app")) {
+                const parts = finalDomain.split('.');
+                if (parts[0].includes('-')) {
+                    // Extrai o nome limpo do projeto (ex: https://questionsrsvende-c.vercel.app)
+                    const cleanProjectName = parts[0].split('-').slice(0, -1).join('-');
+                    finalDomain = `${cleanProjectName}.vercel.app`;
+                    if (!finalDomain.startsWith('http')) {
+                        finalDomain = 'https://' + finalDomain;
+                    }
+                }
+            }
+            
+            // SE VOCÊ JÁ TIVER UM DOMÍNIO COMPRADO/DEFINIDO (EX: https://vende-c.com), desatente a linha abaixo substituindo pela sua URL fixa:
+            // finalDomain = "https://seu-dominio-oficial.com";
+
+            const link = finalDomain + window.location.pathname + '#exame-' + vaga.id;
             document.getElementById('share-vaga-title').innerText = vaga.titulo;
             document.getElementById('share-link-input').value = link;
             openModal('share-modal');
@@ -1031,8 +1049,13 @@
         window.openCreateModal = function() {
             document.getElementById('create-questions-container').innerHTML = "";
             addQuestionField('create-questions-container', 'secao');
-            const secInput = document.querySelector('#create-questions-container .q-pergunta-input');
-            if(secInput) secInput.value = 'Perguntas Gerais de R&S';
+            
+            // Tratamento seguro para garantir que o elemento foi renderizado antes de atribuir o valor
+            setTimeout(() => {
+                const secInput = document.querySelector('#create-questions-container .q-pergunta-input');
+                if(secInput) secInput.value = 'Perguntas Gerais de R&S';
+            }, 50);
+
             addQuestionField('create-questions-container', 'texto');
             openModal('add-vaga-modal');
         };
