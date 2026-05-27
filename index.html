@@ -407,3 +407,488 @@
             <div class="p-6 bg-brand-darkBg text-white flex items-center justify-between border-b border-brand-border/60">
                 <h3 class="font-bold text-lg text-white">Candidatos Inscritos</h3>
                 <button onclick="window.closeModal('vaga-submissions-modal')" class="text-brand-textSecondary hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-6 overflow-x-auto max-h-[60vh]">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-brand-darkBg/30 border-b border-brand-border/40 text-brand-textSecondary text-[10px] font-bold uppercase tracking-widest">
+                            <th class="px-6 py-4">Candidato</th>
+                            <th class="px-6 py-4">Tempo de Execução</th>
+                            <th class="px-6 py-4">Focalizações Perdidas</th>
+                            <th class="px-6 py-4">Status de Risco</th>
+                            <th class="px-6 py-4 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vaga-results-table-body" class="divide-y divide-brand-border/30 text-sm text-slate-300"></tbody>
+                </table>
+            </div>
+            <div class="px-6 py-4 bg-brand-darkBg border-t border-brand-border/60 flex justify-end">
+                <button onclick="window.closeModal('vaga-submissions-modal')" class="px-6 py-2.5 bg-brand-pink text-white rounded-xl font-bold text-xs">Fechar Painel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="candidate-details-modal" class="fixed inset-0 bg-brand-darkBg/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-brand-cardBg rounded-3xl max-w-2xl w-full border border-brand-border shadow-2xl overflow-hidden">
+            <div class="p-6 bg-brand-darkBg text-white flex items-center justify-between border-b border-brand-border/60">
+                <h3 class="font-bold text-lg">Respostas da Avaliação</h3>
+                <button onclick="window.closeModal('candidate-details-modal')" class="text-brand-textSecondary hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-6 space-y-6 max-h-[65vh] overflow-y-auto">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-brand-darkBg/50 p-4 rounded-2xl border border-brand-border/40">
+                    <div><p class="text-[9px] text-brand-textSecondary font-extrabold uppercase">Candidato</p><p id="detail-cand-name" class="font-bold text-white">-</p></div>
+                    <div><p class="text-[9px] text-brand-textSecondary font-extrabold uppercase text-right">Tempo Computado</p><p id="detail-cand-time" class="font-mono font-bold text-brand-pink text-right">-</p></div>
+                </div>
+                <div id="detail-questions-answers" class="space-y-4"></div>
+            </div>
+            <div class="px-6 py-4 bg-brand-darkBg border-t border-brand-border/60 flex justify-end">
+                <button onclick="window.closeModal('candidate-details-modal')" class="px-6 py-2.5 bg-brand-pink text-white rounded-xl font-bold text-xs">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cheat-detection-alert" class="fixed inset-0 bg-[#0c0407]/90 backdrop-blur-md z-[60] flex items-center justify-center p-4 hidden">
+        <div class="bg-brand-cardBg rounded-3xl max-w-md w-full border-2 border-brand-pink p-6 text-center space-y-4 shadow-[0_0_50px_rgba(255,0,127,0.25)]">
+            <div class="w-16 h-16 bg-brand-pink/10 text-brand-pink rounded-full flex items-center justify-center mx-auto text-3xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div>
+                <h3 class="font-extrabold text-brand-pink text-xl uppercase">Bloqueio Ativo / Foco Suspenso</h3>
+                <p class="text-sm text-slate-300 mt-2">Não é permitida a saída da página de exame durante o teste.</p>
+            </div>
+            <button onclick="window.dismissCheatAlert()" class="w-full bg-brand-pink text-white font-bold py-3.5 rounded-xl">Retornar ao Teste</button>
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 space-y-2 max-w-sm pointer-events-none"></div>
+
+    <script type="module">
+        let vagasData = [];
+        let candidatosData = [];
+        let isRealCandidate = false;
+        let loggedInUser = null;
+        let currentActiveScreen = 'painel'; 
+        let currentSelectedVagaForCandidate = null; 
+        let invisibleTimerInterval = null;
+        let timeElapsedInSeconds = 0;
+        let cheatAlertsCounter = 0;
+        let questionFieldCounter = 0;
+
+        const allowedEmails = ['vinicius.silva@vende-c.com', 'eduarda.sodre@vende-c.com', 'lucas.izan@vende-c.com', 'vagas@vende-c.com'];
+        const masterPassword = 'rh2026!';
+
+        const defaultVagasSeed = [{
+            id: 1716654012, titulo: "Analista Financeiro Jr I", depto: "Financeiro", regime: "Híbrido", nivel: "Júnior", ativo: true,
+            questoes: [
+                { tipo: "secao", pergunta: "Teóricas" },
+                { tipo: "texto", pergunta: "Como lidaria com uma divergência na reconciliação financeira mensal?", dica: "Fale sobre rastreamento de lançamentos." }
+            ]
+        }];
+
+        function initSystem() {
+            // Puxa os dados salvos ou a semente padrão
+            vagasData = localStorage.getItem('vagasData') ? JSON.parse(localStorage.getItem('vagasData')) : defaultVagasSeed;
+            candidatosData = localStorage.getItem('candidatosData') ? JSON.parse(localStorage.getItem('candidatosData')) : [];
+            saveLocalState();
+
+            // Esconde a tela de loading universal
+            document.getElementById('db-loading-screen').classList.add('hidden');
+
+            // Descobre o destino pela URL hash
+            checkUrlHash();
+        }
+
+        function saveLocalState() {
+            localStorage.setItem('vagasData', JSON.stringify(vagasData));
+            localStorage.setItem('candidatosData', JSON.stringify(candidatosData));
+        }
+
+        function checkUrlHash() {
+            const hash = window.location.hash;
+            if (hash && hash.startsWith('#exame-')) {
+                const vagaId = parseInt(hash.replace('#exame-', ''));
+                const vaga = vagasData.find(v => v.id === vagaId);
+                
+                if (vaga) {
+                    isRealCandidate = true;
+                    currentSelectedVagaForCandidate = vaga;
+                    
+                    // Configuração visual pura do candidato
+                    document.getElementById('screen-login').classList.add('hidden');
+                    document.getElementById('system-sidebar').classList.add('hidden');
+                    document.getElementById('rh-system-header').classList.add('hidden');
+                    document.getElementById('main-system-layout').classList.remove('hidden');
+                    
+                    navigate('candidate');
+                } else {
+                    window.location.hash = "";
+                    showLoginForm();
+                }
+            } else {
+                if (!loggedInUser) {
+                    showLoginForm();
+                }
+            }
+        }
+
+        function showLoginForm() {
+            document.getElementById('main-system-layout').classList.add('hidden');
+            document.getElementById('screen-login').classList.remove('hidden');
+        }
+
+        function handleLoginSubmit(event) {
+            event.preventDefault();
+            const emailInput = document.getElementById('login-email').value.trim().toLowerCase();
+            const passwordInput = document.getElementById('login-password').value;
+            const errorAlert = document.getElementById('login-error-alert');
+
+            if (allowedEmails.includes(emailInput) && passwordInput === masterPassword) {
+                errorAlert.classList.add('hidden');
+                loggedInUser = emailInput;
+                
+                // Abre o painel geral e mostra a estrutura do Moderador
+                document.getElementById('screen-login').classList.add('hidden');
+                document.getElementById('main-system-layout').classList.remove('hidden');
+                document.getElementById('system-sidebar').classList.remove('hidden');
+                document.getElementById('rh-system-header').classList.remove('hidden');
+                
+                document.getElementById('user-display-email').innerText = emailInput;
+                navigate('painel');
+            } else {
+                errorAlert.classList.remove('hidden');
+            }
+        }
+
+        function navigate(screenId) {
+            if (currentActiveScreen === 'candidate' && screenId !== 'candidate') {
+                exitCandidateSimulationQuietly();
+            }
+
+            document.getElementById('screen-painel').classList.add('hidden');
+            document.getElementById('screen-results').classList.add('hidden');
+            document.getElementById('screen-candidate').classList.add('hidden');
+
+            document.getElementById(`screen-${screenId}`).classList.remove('hidden');
+
+            const contextTitle = document.getElementById('header-context-title');
+            const contextSubtitle = document.getElementById('header-context-subtitle');
+
+            if (screenId === 'painel') {
+                contextTitle.innerText = "Questionários"; contextSubtitle.innerText = "Questionários de R&S";
+                renderVagas();
+            } else if (screenId === 'results') {
+                contextTitle.innerText = "Respostas"; contextSubtitle.innerText = "Painel de Respostas Consolidadas";
+                renderDashboard();
+            } else if (screenId === 'candidate') {
+                contextTitle.innerText = "Exame"; contextSubtitle.innerText = "Ambiente de Teste Monitorado";
+                setupCandidateExam();
+            }
+            currentActiveScreen = screenId;
+        }
+
+        function setupCandidateExam() {
+            const activeView = document.getElementById('candidate-active-view');
+            const closedView = document.getElementById('candidate-closed-view');
+            document.getElementById('candidate-success-view').classList.add('hidden');
+
+            if (!currentSelectedVagaForCandidate) { navigate('painel'); return; }
+
+            if (!isRealCandidate) {
+                document.getElementById('system-sidebar').classList.add('hidden');
+                document.getElementById('exit-simulation-btn').classList.remove('hidden');
+            }
+
+            if (!currentSelectedVagaForCandidate.ativo) {
+                activeView.classList.add('hidden'); closedView.classList.remove('hidden'); return;
+            }
+
+            activeView.classList.remove('hidden'); closedView.classList.add('hidden');
+            document.getElementById('candidate-job-title').innerText = `${currentSelectedVagaForCandidate.titulo} - ${currentSelectedVagaForCandidate.nivel}`;
+
+            const container = document.getElementById('dynamic-questions-container');
+            container.innerHTML = "";
+
+            currentSelectedVagaForCandidate.questoes.forEach((q, idx) => {
+                const questionBlock = document.createElement('div');
+                questionBlock.className = "space-y-3";
+
+                if (q.tipo === "secao") {
+                    questionBlock.innerHTML = `<div class="pt-6 pb-2 border-b border-brand-border/40 mt-8"><h4 class="text-sm font-extrabold text-brand-pink uppercase tracking-widest">${q.pergunta}</h4></div>`;
+                } else if (q.tipo === "texto") {
+                    questionBlock.innerHTML = `
+                        <label class="block text-sm font-bold text-white leading-relaxed">${q.pergunta} *</label>
+                        ${q.dica ? `<p class="text-xs text-brand-textSecondary">Dica: ${q.dica}</p>` : ''}
+                        <textarea id="cand-ans-${idx}" required rows="4" class="w-full px-4 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-pink"></textarea>`;
+                }
+                container.appendChild(questionBlock);
+            });
+
+            timeElapsedInSeconds = 0; cheatAlertsCounter = 0;
+            if (invisibleTimerInterval) clearInterval(invisibleTimerInterval);
+            invisibleTimerInterval = setInterval(() => { timeElapsedInSeconds++; }, 1000);
+
+            if (isRealCandidate) {
+                document.body.classList.add('secure-mode');
+                window.addEventListener('blur', triggerCheatModal);
+            }
+        }
+
+        function triggerCheatModal() {
+            if (currentActiveScreen !== 'candidate') return;
+            cheatAlertsCounter++;
+            document.getElementById('cheat-detection-alert').classList.remove('hidden');
+        }
+
+        function exitCandidateSimulation() {
+            exitCandidateSimulationQuietly();
+            isRealCandidate = false;
+            navigate('painel');
+        }
+
+        function exitCandidateSimulationQuietly() {
+            if (invisibleTimerInterval) { clearInterval(invisibleTimerInterval); invisibleTimerInterval = null; }
+            document.body.classList.remove('secure-mode');
+            window.removeEventListener('blur', triggerCheatModal);
+            document.getElementById('system-sidebar').classList.remove('hidden');
+            document.getElementById('exit-simulation-btn').classList.add('hidden');
+        }
+
+        async function handleCandidateSubmit(e) {
+            e.preventDefault();
+            exitCandidateSimulationQuietly();
+
+            const nome = document.getElementById('cand-name').value;
+            const email = document.getElementById('cand-email').value;
+
+            let respostasMapeadas = [];
+            currentSelectedVagaForCandidate.questoes.forEach((q, idx) => {
+                if (q.tipo !== "secao") {
+                    const el = document.getElementById(`cand-ans-${idx}`);
+                    respostasMapeadas.push({ questao: q.pergunta, resposta: el ? el.value : "" });
+                }
+            });
+
+            const novoCandidato = {
+                id: Date.now(), nome, vaga: currentSelectedVagaForCandidate.titulo, tempoTotal: timeElapsedInSeconds,
+                incidentes: cheatAlertsCounter, status: cheatAlertsCounter > 2 ? "Risco Crítico" : "Aprovado", respostas: respostasMapeadas
+            };
+
+            candidatosData.unshift(novoCandidato);
+            saveLocalState();
+            if (isRealCandidate) {
+                document.getElementById('candidate-active-view').classList.add('hidden');
+                document.getElementById('candidate-success-view').classList.remove('hidden');
+            } else {
+                isRealCandidate = false;
+                navigate('results');
+            }
+        }
+
+        function renderVagas() {
+            const grid = document.getElementById('vagas-grid');
+            grid.innerHTML = "";
+
+            if (vagasData.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-brand-textSecondary text-sm">Nenhum questionário cadastrado.</div>`;
+                return;
+            }
+
+            vagasData.forEach(vaga => {
+                const countSubs = candidatosData.filter(c => c.vaga === vaga.titulo).length;
+                const card = document.createElement('div');
+                card.className = "bg-brand-cardBg p-6 rounded-2xl border border-brand-border/60 flex flex-col justify-between space-y-4 group relative";
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-[9px] font-bold uppercase text-brand-pink bg-brand-pink/5 px-2 py-1 rounded-lg border border-brand-pink/10">${vaga.depto}</span>
+                            <div class="relative inline-block text-left">
+                                <button onclick="window.toggleCardDropdown(event, ${vaga.id})" class="p-1.5 text-brand-textSecondary hover:text-white"><i class="fa-solid fa-ellipsis-vertical text-sm"></i></button>
+                                <div id="dropdown-${vaga.id}" class="card-dropdown hidden absolute right-0 mt-2 w-52 rounded-xl bg-[#1D1D24] border border-brand-border shadow-2xl z-20 overflow-hidden text-left">
+                                    <button onclick="window.openVagaSubmissions('${vaga.titulo}')" class="w-full px-4 py-2.5 text-xs text-slate-300 hover:bg-brand-pink/15 flex items-center space-x-2"><i class="fa-solid fa-users text-brand-pink"></i><span>Ver Candidatos</span></button>
+                                    <button onclick="window.openShareModal(${vaga.id})" class="w-full px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-pink/25 flex items-center space-x-2 border-t border-brand-border/40"><i class="fa-solid fa-share-nodes text-brand-pink"></i><span>Obter Link</span></button>
+                                    <button onclick="window.deleteVaga(${vaga.id})" class="w-full px-4 py-2.5 text-xs text-red-400 hover:bg-red-500/10 flex items-center space-x-2 border-t border-brand-border/40"><i class="fa-solid fa-trash-can"></i><span>Excluir</span></button>
+                                </div>
+                            </div>
+                        </div>
+                        <h3 class="text-white font-extrabold text-base mt-4 h-12 leading-tight">${vaga.titulo}</h3>
+                        <div class="flex justify-between items-center mt-3 text-[11px] text-brand-textSecondary">
+                            <span><i class="fa-solid fa-graduation-cap mr-1 text-brand-pink/80"></i>${vaga.nivel}</span>
+                            <span class="bg-brand-pink/10 text-brand-pink px-2.5 py-0.5 rounded-full font-bold text-[10px]">${countSubs} Inscritos</span>
+                        </div>
+                    </div>`;
+                grid.appendChild(card);
+            });
+        }
+
+        function openShareModal(vagaId) {
+            const vaga = vagasData.find(v => v.id === vagaId);
+            if (!vaga) return;
+            const link = window.location.origin + window.location.pathname + '#exame-' + vaga.id;
+            document.getElementById('share-vaga-title').innerText = vaga.titulo;
+            document.getElementById('share-link-input').value = link;
+            openModal('share-modal');
+        }
+
+        function addQuestionField(containerId, initialType = 'texto', initialData = null) {
+            const container = document.getElementById(containerId);
+            const index = questionFieldCounter++;
+            const questionBlock = document.createElement('div');
+            questionBlock.className = "question-item p-4 bg-brand-darkBg/60 border border-brand-border rounded-2xl relative space-y-2";
+            questionBlock.id = `q-block-${index}`;
+
+            const qPreg = initialData ? initialData.pergunta : '';
+            const qDica = initialData ? (initialData.dica || '') : '';
+
+            if (initialType === 'secao') {
+                questionBlock.innerHTML = `
+                    <button type="button" onclick="window.removeQuestionField('${questionBlock.id}')" class="absolute top-4 right-4 text-brand-textSecondary"><i class="fa-solid fa-trash-can"></i></button>
+                    <input type="hidden" class="q-type-select" value="secao">
+                    <label class="block text-[10px] text-brand-pink font-bold">Título da Seção</label>
+                    <input type="text" value="${qPreg}" required class="q-pergunta-input w-full px-3 py-2 bg-brand-darkBg border border-brand-border rounded-xl text-white text-xs font-bold">`;
+            } else {
+                questionBlock.innerHTML = `
+                    <button type="button" onclick="window.removeQuestionField('${questionBlock.id}')" class="absolute top-4 right-4 text-brand-textSecondary"><i class="fa-solid fa-trash-can"></i></button>
+                    <input type="hidden" class="q-type-select" value="texto">
+                    <label class="block text-[10px] text-brand-textSecondary font-bold">Enunciado</label>
+                    <input type="text" value="${qPreg}" required class="q-pergunta-input w-full px-3 py-2 bg-brand-darkBg border border-brand-border rounded-xl text-white text-xs">
+                    <label class="block text-[10px] text-brand-textSecondary font-bold">Dica de Apoio</label>
+                    <input type="text" value="${qDica}" class="q-dica-input w-full px-3 py-2 bg-brand-darkBg border border-brand-border rounded-xl text-white text-xs">`;
+            }
+            container.appendChild(questionBlock);
+        }
+
+        async function handleCreateVaga(e) {
+            e.preventDefault();
+            const titulo = document.getElementById('vaga-titulo').value;
+            const depto = document.getElementById('vaga-departamento').value;
+            const nivel = document.getElementById('vaga-nivel').value;
+            const localidade = document.getElementById('vaga-localidade').value;
+
+            const items = document.querySelectorAll('#create-questions-container .question-item');
+            let questoes = [];
+
+            items.forEach(item => {
+                const tipo = item.querySelector('.q-type-select').value;
+                const pergunta = item.querySelector('.q-pergunta-input').value;
+                if (tipo === 'secao') questoes.push({ tipo, pergunta });
+                else questoes.push({ tipo, pergunta, dica: item.querySelector('.q-dica-input').value });
+            });
+
+            const novaVaga = { id: Date.now(), titulo, depto, regime: localidade, nivel, ativo: true, questoes };
+
+            vagasData.push(novaVaga); 
+            saveLocalState(); 
+            closeModal('add-vaga-modal'); 
+            renderVagas();
+            e.target.reset();
+        }
+
+        function renderDashboard() {
+            const tbody = document.getElementById('dashboard-results-table-body');
+            tbody.innerHTML = "";
+            document.getElementById('dash-total-answers').innerText = candidatosData.length;
+
+            if(candidatosData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-xs text-brand-textSecondary">Nenhuma submissão.</td></tr>`;
+                return;
+            }
+
+            candidatosData.forEach(cand => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-brand-border/30 text-xs";
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-bold text-white">${cand.nome}</td>
+                    <td class="px-6 py-4">${cand.vaga}</td>
+                    <td class="px-6 py-4">${cand.tempoTotal}s</td>
+                    <td class="px-6 py-4">${cand.incidentes} desvios</td>
+                    <td class="px-6 py-4">${cand.status}</td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="window.viewCandidateRespostas(${cand.id})" class="bg-brand-pink/10 text-brand-pink px-3 py-1.5 rounded-lg">Auditoria</button>
+                    </td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function removeQuestionField(id) { const el = document.getElementById(id); if (el) el.remove(); }
+        
+        function togglePasswordVisibility() {
+            const p = document.getElementById('login-password');
+            p.type = p.type === 'password' ? 'text' : 'password';
+        }
+        
+        function handleLogout() { 
+            loggedInUser = null; 
+            window.location.hash = ""; 
+            location.reload(); 
+        }
+
+        // Pontes globais essenciais ligados à Window de forma limpa e direta
+        window.handleLoginSubmit = handleLoginSubmit;
+        window.handleLogout = handleLogout;
+        window.togglePasswordVisibility = togglePasswordVisibility;
+        window.navigate = navigate;
+        window.addQuestionField = addQuestionField;
+        window.removeQuestionField = removeQuestionField;
+        window.handleCreateVaga = handleCreateVaga;
+        window.exitCandidateSimulation = exitCandidateSimulation;
+        window.handleCandidateSubmit = handleCandidateSubmit;
+        window.openShareModal = openShareModal;
+        window.closeModal = closeModal;
+        
+        window.toggleCardDropdown = function(event, id) {
+            event.stopPropagation();
+            document.querySelectorAll('.card-dropdown').forEach(d => { if(d.id !== `dropdown-${id}`) d.classList.add('hidden'); });
+            document.getElementById(`dropdown-${id}`).classList.toggle('hidden');
+        };
+
+        window.openCreateModal = function() {
+            document.getElementById('create-questions-container').innerHTML = "";
+            addQuestionField('create-questions-container', 'secao', { pergunta: 'Perguntas Gerais' });
+            addQuestionField('create-questions-container', 'texto');
+            openModal('add-vaga-modal');
+        };
+
+        window.openVagaSubmissions = function(vagaTitulo) {
+            const body = document.getElementById('vaga-results-table-body');
+            body.innerHTML = "";
+            const filtered = candidatosData.filter(c => c.vaga === vagaTitulo);
+            filtered.forEach(c => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td class="px-6 py-4">${c.nome}</td><td class="px-6 py-4">${c.tempoTotal}s</td><td class="px-6 py-4">${c.incidentes}</td><td class="px-6 py-4">${c.status}</td><td class="px-6 py-4"><button onclick="window.viewCandidateRespostas(${c.id})" class="text-brand-pink">Ver</button></td>`;
+                body.appendChild(tr);
+            });
+            openModal('vaga-submissions-modal');
+        };
+
+        window.viewCandidateRespostas = function(id) {
+            const cand = candidatosData.find(c => c.id === id);
+            if (!cand) return;
+            document.getElementById('detail-cand-name').innerText = cand.nome;
+            document.getElementById('detail-cand-time').innerText = cand.tempoTotal + "s";
+            const container = document.getElementById('detail-questions-answers');
+            container.innerHTML = "";
+            cand.respostas.forEach(r => {
+                container.innerHTML += `<div class="p-3 bg-brand-darkBg rounded-xl"><p class="text-[10px] text-brand-pink font-bold">${r.questao}</p><p class="text-xs text-white italic font-medium">"${r.resposta}"</p></div>`;
+            });
+            openModal('candidate-details-modal');
+        };
+
+        window.copyToClipboard = function() {
+            const input = document.getElementById('share-link-input');
+            input.select(); document.execCommand('copy');
+        };
+
+        window.deleteVaga = function(id) {
+            vagasData = vagasData.filter(v => v.id !== id); saveLocalState(); renderVagas();
+        };
+
+        window.dismissCheatAlert = function() { document.getElementById('cheat-detection-alert').classList.add('hidden'); };
+
+        window.addEventListener('click', () => { document.querySelectorAll('.card-dropdown').forEach(d => d.classList.add('hidden')); });
+        window.addEventListener('hashchange', checkUrlHash);
+
+        // Dispara o carregador centralizado
+        initSystem();
+    </script>
+</body>
+</html>
