@@ -6,6 +6,9 @@
     <title>VENDE-C - Painel de Questionários R&S</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -66,7 +69,7 @@
 
     <div id="db-loading-screen" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-brand-darkBg space-y-4">
         <div class="w-16 h-16 animate-spin rounded-full border-4 border-brand-pink/20 border-t-brand-pink"></div>
-        <p class="text-sm text-brand-textSecondary font-semibold">A sincronizar com o Servidor Online VENDE-C...</p>
+        <p class="text-sm text-brand-textSecondary font-semibold">A sincronizar com o Servidor Seguro VENDE-C...</p>
     </div>
 
     <div id="screen-login" class="fixed inset-0 z-50 flex items-center justify-center bg-brand-darkBg px-4 hidden">
@@ -86,7 +89,7 @@
                 <span>E-mail não autorizado ou palavra-passe incorreta.</span>
             </div>
 
-            <form id="form-login" onsubmit="window.handleLoginSubmit(event)" class="space-y-4">
+            <form id="form-login" class="space-y-4">
                 <div>
                     <label class="block text-[9px] font-bold text-brand-textSecondary tracking-widest uppercase mb-1.5">E-Mail Corporativo</label>
                     <input type="email" id="login-email" required value="vagas@vende-c.com" class="w-full px-4 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-pink/50 focus:border-brand-pink transition-all placeholder-brand-textSecondary/30" placeholder="nome.sobrenome@vende-c.com">
@@ -96,7 +99,7 @@
                     <label class="block text-[9px] font-bold text-brand-textSecondary tracking-widest uppercase mb-1.5">Palavra-passe Corporativa</label>
                     <div class="relative">
                         <input type="password" id="login-password" required value="rh2026!" class="w-full pl-4 pr-11 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-pink/50 focus:border-brand-pink transition-all">
-                        <button type="button" id="btn-toggle-password" onclick="window.togglePasswordVisibility()" class="absolute right-3.5 top-3.5 text-brand-textSecondary hover:text-slate-200 transition-colors">
+                        <button type="button" id="btn-toggle-password" class="absolute right-3.5 top-3.5 text-brand-textSecondary hover:text-slate-200 transition-colors">
                             <i id="password-toggle-icon" class="fa-solid fa-eye-slash text-xs"></i>
                         </button>
                     </div>
@@ -118,11 +121,11 @@
                 </div>
 
                 <nav class="p-4 space-y-1">
-                    <button id="menu-painel" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 text-white bg-brand-pink shadow-md shadow-brand-pink/10">
+                    <button id="menu-painel" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150">
                         <i class="fa-solid fa-folder-open w-5 text-center"></i>
                         <span>Painel de Questionários</span>
                     </button>
-                    <button id="menu-results" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 text-brand-textSecondary hover:text-white hover:bg-white/5">
+                    <button id="menu-results" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150">
                         <i class="fa-solid fa-chart-pie w-5 text-center"></i>
                         <span>Painel de Respostas</span>
                     </button>
@@ -143,7 +146,7 @@
         <main class="flex-1 flex flex-col overflow-hidden">
             <header id="rh-system-header" class="h-20 border-b border-brand-border/60 bg-brand-cardBg/20 flex items-center justify-between px-8 shrink-0">
                 <div class="flex items-center space-x-4">
-                    <button onclick="window.toggleSidebar()" class="p-2 bg-brand-cardBg border border-brand-border rounded-xl text-brand-textSecondary hover:text-white transition-colors">
+                    <button id="btn-toggle-sidebar" class="p-2 bg-brand-cardBg border border-brand-border rounded-xl text-brand-textSecondary hover:text-white transition-colors">
                         <i class="fa-solid fa-bars text-sm"></i>
                     </button>
                     <div>
@@ -159,7 +162,7 @@
 
                     <div id="conn-status-badge" class="flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full text-xs text-emerald-400 font-semibold">
                         <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span id="conn-status-text">Nuvem Ativa</span>
+                        <span id="conn-status-text">Conexão Online</span>
                     </div>
                     <button id="btn-logout" class="text-brand-textSecondary hover:text-brand-pink text-xs font-bold flex items-center space-x-1.5 transition-colors">
                         <i class="fa-solid fa-right-from-bracket"></i>
@@ -226,13 +229,13 @@
                     <div class="bg-brand-cardBg p-5 rounded-2xl border border-brand-border/60 grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-[10px] text-brand-textSecondary uppercase font-bold mb-2">Filtrar por Vaga/Cargo</label>
-                            <select id="filter-vaga" class="w-full px-4 py-2.5 bg-brand-darkBg border border-brand-border rounded-xl text-white text-xs focus:ring-1 focus:ring-brand-pink">
+                            <select id="filter-vaga" class="w-full px-4 py-2.5 bg-brand-darkBg border border-brand-border rounded-xl text-white text-xs">
                                 <option value="todos">Todos os Cargos</option>
                             </select>
                         </div>
                         <div>
                             <label class="block text-[10px] text-brand-textSecondary uppercase font-bold mb-2">Filtrar por Data de Submissão</label>
-                            <input type="date" id="filter-data" class="w-full px-4 py-2.5 bg-brand-darkBg border border-brand-border rounded-xl text-white text-xs focus:ring-1 focus:ring-brand-pink text-slate-300">
+                            <input type="date" id="filter-data" class="w-full px-4 py-2.5 bg-brand-darkBg border border-brand-border rounded-xl text-white text-xs text-slate-300">
                         </div>
                     </div>
 
@@ -450,7 +453,7 @@
                     <label class="block text-xs uppercase font-bold text-brand-textSecondary mb-2">URL de Acesso Direto do Candidato</label>
                     <div class="flex space-x-2">
                         <input type="text" id="share-link-input" readonly class="flex-1 px-4 py-3 bg-brand-darkBg border border-brand-border rounded-xl text-xs text-brand-pink font-semibold focus:outline-none">
-                        <button onclick="window.copyToClipboard()" class="bg-brand-pink text-white px-5 rounded-xl font-bold text-xs shrink-0"><i class="fa-regular fa-copy mr-1"></i>Copiar</button>
+                        <button id="btn-copy-link" class="bg-brand-pink text-white px-5 rounded-xl font-bold text-xs shrink-0"><i class="fa-regular fa-copy mr-1"></i>Copiar</button>
                     </div>
                 </div>
             </div>
@@ -511,7 +514,18 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getFirestore, collection, addDoc, doc, deleteDoc, updateDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Variáveis globais do escopo unificado
+        // CREDENCIAIS OFICIAIS DECLARADAS CORRETAMENTE
+        const firebaseConfig = {
+            apiKey: "AIzaSyCHzy5QbGcgixl_frseXrdenVwOXkXzgq8",
+            authDomain: "vende-c-rs.firebaseapp.com",
+            projectId: "vende-c-rs",
+            storageBucket: "vende-c-rs.firebasestorage.app",
+            messagingSenderId: "933241533951",
+            appId: "1:933241533951:web:da7fcd33e8c6b32fd0e3ca",
+            measurementId: "G-L46RTDL2F8"
+        };
+
+        // Escopos Globais Compartilhados
         window.vagasData = [];
         window.candidatosData = [];
 
@@ -527,87 +541,19 @@
         const allowedEmails = ['vinicius.silva@vende-c.com', 'eduarda.sodre@vende-c.com', 'lucas.izan@vende-c.com', 'vagas@vende-c.com', 'carlos@vende-c.com'];
         const masterPassword = 'rh2026!';
 
-        // Inicializar instâncias
+        // Inicializar Instâncias Core do SDK v10
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const vagasRef = collection(db, "vagas");
         const candidatosRef = collection(db, "candidatos");
 
-        // Roteador de segurança inicial preventivo
-        const hashOnStart = window.location.hash;
-        if (hashOnStart && hashOnStart.startsWith('#exame-')) {
-            isRealCandidate = true;
-            document.getElementById('screen-login').style.display = 'none';
-            document.getElementById('screen-login').classList.add('hidden');
-        }
-
-        // Sincronização automática em tempo real
-        function startRealtimeSyncEngine() {
-            onSnapshot(query(vagasRef, orderBy("id", "asc")), (snapshot) => {
-                window.vagasData = [];
-                snapshot.forEach(docSnap => {
-                    let data = docSnap.data();
-                    data.firestoreId = docSnap.id;
-                    window.vagasData.push(data);
-                });
-                updateStatsCounters();
-                populateVagasFilterOptions();
-                if (currentActiveScreen === 'painel') renderVagas();
-                
-                // Desbloqueia tela preta de loading assim que os dados chegam
-                document.getElementById('db-loading-screen').classList.add('hidden');
-                checkUrlHashRoute();
-            }, (error) => {
-                console.error("Falha ao sincronizar:", error);
-                document.getElementById('db-loading-screen').classList.add('hidden');
-                if(!isRealCandidate) showLoginForm();
-            });
-
-            onSnapshot(query(candidatosRef, orderBy("id", "desc")), (snapshot) => {
-                window.candidatosData = [];
-                snapshot.forEach(docSnap => {
-                    let data = docSnap.data();
-                    data.firestoreId = docSnap.id;
-                    window.candidatosData.push(data);
-                });
-                if (currentActiveScreen === 'results') renderDashboard();
-                if (currentActiveScreen === 'painel') renderVagas();
-                updateStatsCounters();
-            });
-        }
-
-        // Failsafe absoluto de redundância de desbloqueio de tela
-        setTimeout(() => {
-            const loader = document.getElementById('db-loading-screen');
-            if (loader && !loader.classList.contains('hidden')) {
-                loader.classList.add('hidden');
-                if (window.location.hash && window.location.hash.startsWith('#exame-')) {
-                    checkUrlHashRoute();
-                } else if(!loggedInUser) {
-                    showLoginForm();
-                }
-            }
-        }, 1200);
-
-        function updateStatsCounters() {
-            document.getElementById('stat-total-q').innerText = window.vagasData.length;
-            document.getElementById('stat-ativos-q').innerText = window.vagasData.filter(v => v.ativo).length;
-            document.getElementById('stat-fechados-q').innerText = window.vagasData.filter(v => !v.ativo).length;
-        }
-
-        function populateVagasFilterOptions() {
-            const select = document.getElementById('filter-vaga');
-            if(!select) return;
-            const currentSelected = select.value;
-            select.innerHTML = '<option value="todos">Todos os Cargos</option>';
-            const titulos = [...new Set(window.vagasData.map(v => v.titulo))];
-            titulos.forEach(t => { select.innerHTML += `<option value="${t}">${t}</option>`; });
-            select.value = currentSelected;
-        }
-
+        // Roteador de Interceptação de Hash Imediato contra bloqueio de Login
+        let hashChecked = false;
         function checkUrlHashRoute() {
+            if (hashChecked) return;
             const hash = window.location.hash;
             if (hash && hash.startsWith('#exame-')) {
+                hashChecked = true;
                 const vagaId = parseInt(hash.replace('#exame-', ''));
                 const vaga = window.vagasData.find(v => v.id === vagaId);
                 
@@ -616,17 +562,18 @@
                     currentSelectedVagaForCandidate = vaga;
                     
                     document.getElementById('screen-login').classList.add('hidden');
-                    document.getElementById('screen-login').style.display = 'none';
                     document.getElementById('system-sidebar').classList.add('hidden');
                     document.getElementById('rh-system-header').classList.add('hidden');
                     document.getElementById('main-system-layout').classList.remove('hidden');
+                    document.getElementById('db-loading-screen').classList.add('hidden');
                     
-                    navigate( 'candidate');
+                    navigate('candidate');
                 } else {
                     window.location.hash = "";
                     showLoginForm();
                 }
             } else {
+                document.getElementById('db-loading-screen').classList.add('hidden');
                 if (!loggedInUser) showLoginForm();
             }
         }
@@ -637,7 +584,7 @@
             document.getElementById('screen-login').style.display = 'flex';
         }
 
-        // MÉTODOS EXPOSTOS NA WINDOW (RESOLVE O PROBLEMA DO LOGIN)
+        // Funções de Gerenciamento SPA Vinculadas ao Escopo Window de Forma Segura
         window.handleLoginSubmit = function(event) {
             event.preventDefault();
             const emailInput = document.getElementById('login-email').value.trim().toLowerCase();
@@ -672,6 +619,20 @@
             const contextTitle = document.getElementById('header-context-title');
             const contextSubtitle = document.getElementById('header-context-subtitle');
 
+            // Gerenciador dinâmico de abas ativas/inativas solicitado pelo Claude
+            const btnPainel = document.getElementById('menu-painel');
+            const btnResults = document.getElementById('menu-results');
+            
+            if (btnPainel && btnResults) {
+                if (screenId === 'painel') {
+                    btnPainel.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 text-white bg-brand-pink shadow-md shadow-brand-pink/10";
+                    btnResults.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 text-brand-textSecondary hover:text-white hover:bg-white/5";
+                } else if (screenId === 'results') {
+                    btnResults.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 text-white bg-brand-pink shadow-md shadow-brand-pink/10";
+                    btnPainel.className = "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 text-brand-textSecondary hover:text-white hover:bg-white/5";
+                }
+            }
+
             if (screenId === 'painel') {
                 contextTitle.innerText = "Questionários"; contextSubtitle.innerText = "Questionários de R&S";
                 renderVagas();
@@ -688,7 +649,9 @@
         window.toggleSidebar = function() {
             const sidebar = document.getElementById('system-sidebar');
             if(sidebar) {
-                sidebar.classList.toggle('w-64'); sidebar.classList.toggle('w-0'); sidebar.classList.toggle('overflow-hidden');
+                sidebar.classList.toggle('w-64');
+                sidebar.classList.toggle('w-0');
+                sidebar.classList.toggle('overflow-hidden');
             }
         };
 
@@ -863,9 +826,9 @@
                             <span class="text-[9px] font-bold uppercase text-brand-pink bg-brand-pink/5 px-2 py-1 rounded-lg border border-brand-pink/10">${vaga.depto}</span>
                             <div class="relative inline-block text-left">
                                 <button onclick="window.toggleCardDropdown(event, ${vaga.id})" class="p-1.5 text-brand-textSecondary hover:text-white"><i class="fa-solid fa-ellipsis-vertical text-sm"></i></button>
-                                <div id="dropdown-${vaga.id}" class="card-dropdown hidden absolute right-0 mt-2 w-52 rounded-xl bg-[#1D1D24] border border-brand-border shadow-2xl z-20 overflow-hidden text-left">
+                                <div id="dropdown-${vaga.id}" class="card-dropdown hidden absolute right-0 mt-2 w-52 rounded-xl bg-[#1D1D24] border border-brand-border shadow-2xl z-20 overflow-hidden text-left font-sans">
                                     <button onclick="window.openVagaSubmissions('${vaga.titulo}')" class="w-full px-4 py-2.5 text-xs text-slate-300 hover:bg-brand-pink/15 flex items-center space-x-2"><i class="fa-solid fa-users text-brand-pink"></i><span>Ver Candidatos</span></button>
-                                    <button onclick="window.openShareModal(${vaga.id})" class="w-full px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-pink/25 flex items-center space-x-2 border-t border-brand-border/40"><i class="fa-solid fa-share-nodes text-brand-pink"></i><span>Obter Link</span></button>
+                                    <button onclick="window.openShareModal(${vaga.id})" class="w-full px-4 py-2.5 text-xs font-bold text-white hover:bg-brand-pink/25 flex items-center space-x-2"><i class="fa-solid fa-share-nodes text-brand-pink"></i><span>Obter Link</span></button>
                                     <button onclick="window.openEditQuestions(${vaga.id})" class="w-full px-4 py-2.5 text-xs text-slate-300 hover:bg-brand-pink/15 flex items-center space-x-2"><i class="fa-solid fa-pen-to-square text-brand-pink"></i><span>Perguntas</span></button>
                                     <button onclick="window.toggleVagaAtiva('${vaga.firestoreId}', ${vaga.ativo})" class="w-full px-4 py-2.5 text-xs font-semibold text-slate-300 hover:bg-brand-pink/15 flex items-center space-x-2"><i class="fa-solid ${vaga.ativo ? 'fa-lock text-amber-500' : 'fa-lock-open text-emerald-400'}"></i><span>${vaga.ativo ? 'Fechar Fluxo' : 'Reabrir Fluxo'}</span></button>
                                     <button onclick="window.deleteVaga('${vaga.firestoreId}')" class="w-full px-4 py-2.5 text-xs text-red-400 hover:bg-red-500/10 flex items-center space-x-2 border-t border-brand-border/40"><i class="fa-solid fa-trash-can"></i><span>Excluir</span></button>
@@ -885,11 +848,8 @@
         window.openShareModal = function(vagaId) {
             const vaga = window.vagasData.find(v => v.id === vagaId);
             if (!vaga) return;
-            let cleanOrigin = window.location.origin;
-            if (cleanOrigin.includes("-projects.vercel.app")) {
-                cleanOrigin = `https://${cleanOrigin.split('-')[0]}.vercel.app`;
-            }
-            const link = cleanOrigin + window.location.pathname + '#exame-' + vaga.id;
+            // Correção absoluta solicitada de geração de link limpo para produção
+            const link = window.location.origin + window.location.pathname + '#exame-' + vaga.id;
             document.getElementById('share-vaga-title').innerText = vaga.titulo;
             document.getElementById('share-link-input').value = link;
             openModal('share-modal');
@@ -1102,18 +1062,56 @@
         window.deleteVaga = async function(id) { if(confirm("Apagar questionário?")) await deleteDoc(doc(db, "vagas", id)); };
         window.deleteCandidato = async function(id) { if(confirm("Apagar resposta?")) await deleteDoc(doc(db, "candidatos", id)); };
         window.toggleVagaAtiva = async function(id, state) { await updateDoc(doc(db, "vagas", id), { ativo: !state }); };
+        window.copyToClipboard = async function() { 
+            const input = document.getElementById('share-link-input'); 
+            if(input) {
+                await navigator.clipboard.writeText(input.value);
+                alert("Link copiado com sucesso!");
+            }
+        };
         window.handleLogout = () => { loggedInUser = null; window.location.hash = ""; location.reload(); };
 
-        // Ouvintes de eventos estáticos da DOM
+        // Sincronizador Core e Escutas de Carregamento
+        function startRealtimeSyncEngine() {
+            onSnapshot(query(vagasRef, orderBy("id", "asc")), (snapshot) => {
+                window.vagasData = [];
+                snapshot.forEach(docSnap => {
+                    let data = docSnap.data();
+                    data.firestoreId = docSnap.id;
+                    window.vagasData.push(data);
+                });
+                updateStatsCounters();
+                populateVagasFilterOptions();
+                if (currentActiveScreen === 'painel') renderVagas();
+                
+                document.getElementById('db-loading-screen').classList.add('hidden');
+                checkUrlHashRoute();
+            }, (error) => {
+                document.getElementById('db-loading-screen').classList.add('hidden');
+                if(!isRealCandidate) showLoginForm();
+            });
+
+            onSnapshot(query(candidatosRef, orderBy("id", "desc")), (snapshot) => {
+                window.candidatosData = [];
+                snapshot.forEach(docSnap => {
+                    let data = docSnap.data();
+                    data.firestoreId = docSnap.id;
+                    window.candidatosData.push(data);
+                });
+                if (currentActiveScreen === 'results') renderDashboard();
+                if (currentActiveScreen === 'painel') renderVagas();
+                updateStatsCounters();
+            });
+        }
+
+        // Failsafe de Acoplamento Imediato da DOM
         document.getElementById('menu-painel')?.addEventListener('click', () => navigate('painel'));
         document.getElementById('menu-results')?.addEventListener('click', () => navigate('results'));
         document.getElementById('btn-create-questionnaire')?.addEventListener('click', window.openCreateModal);
         document.getElementById('btn-logout')?.addEventListener('click', window.handleLogout);
         document.getElementById('filter-vaga')?.addEventListener('change', renderDashboard);
         document.getElementById('filter-data')?.addEventListener('input', renderDashboard);
-        window.addEventListener('click', () => { document.querySelectorAll('.card-dropdown').forEach(d => d.classList.add('hidden')); });
-
-        // Eventos dos botões internos dos modais de criação/edição rápida
+        
         document.getElementById('btn-add-section')?.addEventListener('click', () => window.addQuestionField('create-questions-container', 'secao'));
         document.getElementById('btn-add-text')?.addEventListener('click', () => window.addQuestionField('create-questions-container', 'texto'));
         document.getElementById('btn-add-multi')?.addEventListener('click', () => window.addQuestionField('create-questions-container', 'multipla'));
@@ -1121,10 +1119,16 @@
         document.getElementById('btn-edit-add-section')?.addEventListener('click', () => window.addQuestionField('edit-questions-container', 'secao'));
         document.getElementById('btn-edit-add-text')?.addEventListener('click', () => window.addQuestionField('edit-questions-container', 'texto'));
         document.getElementById('btn-edit-add-multi')?.addEventListener('click', () => window.addQuestionField('edit-questions-container', 'multipla'));
-        document.getElementById('form-create-vaga')?.addEventListener('submit', handleCreateVaga);
-        document.getElementById('form-edit-vaga')?.addEventListener('submit', handleSaveEditedQuestions);
+        document.getElementById('candidate-form')?.addEventListener('submit', handleCandidateSubmit);
+        document.getElementById('form-login')?.addEventListener('submit', window.handleLoginSubmit);
 
-        // Inicializar sincronização online do Core
+        window.addEventListener('click', () => { document.querySelectorAll('.card-dropdown').forEach(d => d.classList.add('hidden')); });
+        window.addEventListener('hashchange', () => { hashChecked = false; checkUrlHashRoute(); });
+
+        // Forçar Marcação Inicial das Abas solicitada no Relatório
+        window.navigate('painel');
+
+        // Disparar Conexão Oficial
         startRealtimeSyncEngine();
     </script>
 </body>
