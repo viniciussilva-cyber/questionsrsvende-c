@@ -836,28 +836,23 @@
                 grid.appendChild(card);
             });
         }
+function openShareModal(vagaId) {
+    const vaga = window.vagasData.find(v => v.id === vagaId);
+    if (!vaga) return;
+    
+    // Captura o domínio exato onde o app está rodando (seja localhost, Vercel ou domínio próprio)
+    const finalDomain = window.location.origin;
+    
+    // Captura o caminho da página atual de forma limpa (geralmente '/' ou '/index.html')
+    const pathname = window.location.pathname;
 
-        function openShareModal(vagaId) {
-            const vaga = window.vagasData.find(v => v.id === vagaId);
-            if (!vaga) return;
-            
-            let finalDomain = window.location.origin;
-
-            if (finalDomain.includes("-projects.vercel.app")) {
-                const parts = finalDomain.split('.');
-                if (parts[0].includes('-')) {
-                    const cleanProjectName = parts[0].split('-').slice(0, -1).join('-');
-                    finalDomain = `${cleanProjectName}.vercel.app`;
-                    if (!finalDomain.startsWith('http')) {
-                        finalDomain = 'https://' + finalDomain;
-                    }
-                }
-            }
-
-            const link = finalDomain + window.location.pathname + '#exame-' + vaga.id;
-            document.getElementById('share-vaga-title').innerText = vaga.titulo;
-            document.getElementById('share-link-input').value = link;
-            openModal('share-modal');
+    // Monta o link final garantindo que a hash #exame-ID fique no final
+    const link = finalDomain + pathname + '#exame-' + vaga.id;
+    
+    document.getElementById('share-vaga-title').innerText = vaga.titulo;
+    document.getElementById('share-link-input').value = link;
+    openModal('share-modal');
+}
         }
 
         function addQuestionField(containerId, initialType = 'texto') {
